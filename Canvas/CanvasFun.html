@@ -1,0 +1,966 @@
+<html>
+	<head>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+		<style type="text/css">
+			body {
+				background-color: #FFF;
+				font-family: Verdana;
+			}
+			input[type=text] {
+				font-size: 8pt;
+			}
+			.wrapper {
+				position: relative;
+				background-color: #EEE;
+				border: 3px solid #999;
+				height: 510px;
+				width: 690px;
+				padding: 5px;
+				border-radius: 15px;
+			}
+			.header {
+				font-size: .75em;
+				font-weight: bold;
+			}
+			.anim {
+				height: 500px;
+				padding: 5px;
+				float: left;
+			}
+			.options {
+				float: left;
+				width: 150px;
+				height: 250px;
+				margin-top: 5px;
+				margin-left: 6px;
+				border: 3px solid #666;
+				background-color: #DADADA;
+				border-radius: 15px;
+				padding: 5px;
+			}
+			#spnFPS {
+				position: absolute;
+				bottom: 5;
+				right: 10;
+				text-align: right;
+			}
+			#myCanvas {
+				border: 1px solid #CCC;
+			}
+			#rubberbandDiv {
+				position: absolute;
+				border: 1px solid blue;
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="wrapper">
+			<div class="anim">
+				<canvas id="myCanvas" width="500" height="500">
+				</canvas>
+			</div>
+			<div class="options">
+				<span class="header">Behavior</span>
+				<br />
+				<select id="selBehavior" onchange="changeBehavior()">
+					<option value="squares">Rotating Squares</option>
+					<option value="biomorph" selected>Biomorph</option>
+					<option value="mandelbrot">Mandelbrot</option>
+				</select>
+				<br />
+				<div id="divColorScheme">
+					<span class="header">Color Scheme</span>
+					<br />
+					<select id="selColorScheme" onchange="">
+						<option value="0">Random</option>
+						<option value="1">Random HSV</option>
+						<option value="2">Triangle</option>
+						<option value="3">Hot / Cold</option>
+						<option value="4">Christmas</option>
+						<option value="5">Grayscale</option>
+						<option value="6">Reds</option>
+						<option value="7">Greens</option>
+						<option value="8">Blues</option>
+						<option value="9">Topo</option>
+					</select>
+					<br />
+				</div>
+				<div id="divSquares">
+					<br />
+					<span class="header">Render Type</span>
+					<br />
+					<select id="selRenderType">
+						<option value="animate">Animation</option>
+						<option value="frame">Still Frame</option>
+					</select>
+					<br />
+					<span class="header"># of Squares</span>
+					<br />
+					<input type="text" id="txtNumSquares" value="24" style="width: 64px;" />
+					<br />
+					<span class="header">Drawing Mode</span>
+					<br />
+					<select id="selModeType">
+						<option value="triangle">Triangles</option>
+						<option value="line">Lines</option>
+					</select>
+					<br />
+					<input type="button" id="btnRunAnim" value="Render" onclick="runAnim()" />
+					<input type="button" id="btnStopAnim" value="Stop" onclick="stopAnim()" />
+				</div>
+				<div id="divFractal" style="display: none;">
+					<br />
+					<table>
+						<tr>
+							<td><span class="header">Start Real</span></td>
+							<td><span class="header">Start Imag</span></td>
+						</tr>
+						<tr>
+							<td><input type="text" id="txtStartReal" value="-2.00" style="width: 64px;" /></td>
+							<td><input type="text" id="txtStartImag" value="-2.00" style="width: 64px;" /></td>
+						</tr>
+					</table>
+					<table>
+						<tr>
+							<td><span class="header">End Real</span></td>
+							<td><span class="header">End Imag</span></td>
+						</tr>
+						<tr>
+							<td><input type="text" id="txtEndReal" value="2.00" style="width: 64px;" /></td>
+							<td><input type="text" id="txtEndImag" value="2.00" style="width: 64px;" /></td>
+						</tr>
+					</table>
+					<div id="divMuOffsets">
+					<table>
+						<tr>
+							<td><span class="header">mu Real</span></td>
+							<td><span class="header">mu Imag</span></td>
+						</tr>
+						<tr>
+							<td><input type="text" id="txtMuReal" value="0.60" style="width: 64px;" /></td>
+							<td><input type="text" id="txtMuImag" value="0.00" style="width: 64px;" /></td>
+						</tr>
+					</table>
+					</div>
+					<input type="button" id="btnDrawFractal" value="Render" onclick="drawFractal()" />
+				</div>
+			</div>
+			<div id="spnFPS">0 fps</div>
+		</div>
+		<div id="status"></div>
+	</body>
+	<script type="text/javascript">
+		// Canvas variables
+		var canvas = document.getElementById("myCanvas")
+		var context = canvas.getContext("2d")
+		var spnFPS = document.getElementById("spnFPS")
+		var width = canvas.width
+		var height = canvas.height
+		var imageData = context.createImageData(1,1)
+		var data = imageData.data
+		var myStatus = document.getElementById("status")
+		var drawingSurfaceImageData = null
+
+		// Animated squares variables
+		var stopAnimation = false
+		var rounds = 32
+		var step = 0.001
+		var factor = 0
+		var c2x, c3x, c1x, c4x, c2y, c3y, c1y, c4y
+		var mode = "triangle"
+		var render = "frame"
+		var FPS = 60
+		var lastLoop = new Date()
+
+		// Fractal variables
+		var startReal
+		var startImag
+		var endReal
+		var endImag
+		var muReal
+		var muImag
+		var startWidth
+		var endWidth
+		var startHeight
+		var endHeight
+		var xStep
+		var yStep
+		var animStep = 1
+
+		var imgd8=context.getImageData(0,0,width,height)
+		var pix8=imgd8.data
+
+		var Real
+		var Imaginary
+		var Exponent = 2
+		var fractalMode = ""
+
+		var rbStartX = 0
+		var rbStartY = 0
+		var rbX = 0
+		var rbY = 0
+		var dragging = false
+		var hasFractal = false
+		var COLORCOUNT = 256
+
+		$(document).ready(function() {
+			changeBehavior()
+			initPalette()
+		});
+
+		function changeBehavior() {
+			var behavior = $("#selBehavior")
+			if (behavior.length > 0) {
+				switch (behavior.val()) {
+					case "squares":
+						$("#divFractal").hide()
+						$("#divSquares").show()
+						$("#divColorScheme").show()
+						hasFractal = false
+						break
+					case "biomorph":
+						fractalMode = behavior.val()
+						$("#divFractal").show()
+						$("#divSquares").hide()
+						$("#divMuOffsets").show()
+						$("#divColorScheme").hide()
+
+						$("#txtStartReal").val("-2.0")
+						$("#txtStartImag").val("-2.0")
+						$("#txtEndReal").val("2.0")
+						$("#txtEndImag").val("2.0")
+						$("#txtMuReal").val("0.6")
+						$("#txtMuImag").val("0.0")
+
+						startReal = parseFloat($("#txtStartReal").val())
+						startImag = parseFloat($("#txtStartImag").val())
+						endReal = parseFloat($("#txtEndReal").val())
+						endImag = parseFloat($("#txtEndImag").val())
+						muReal = parseFloat($("#txtMuReal").val())
+						muImag = parseFloat($("#txtMuImag").val())
+						break
+					//TODO: Possibly add Mandelbrot and Julia options
+					case "mandelbrot":
+					case "julia":
+						fractalMode = behavior.val()
+						$("#divFractal").show()
+						$("#divSquares").hide()
+						$("#divMuOffsets").hide()
+						$("#divColorScheme").show()
+
+						$("#txtStartReal").val("-2.25")
+						$("#txtStartImag").val("-1.5")
+						$("#txtEndReal").val("0.75")
+						$("#txtEndImag").val("1.5")
+						$("#txtMuReal").val("0.0")
+						$("#txtMuImag").val("0.0")
+
+						startReal = parseFloat($("#txtStartReal").val())
+						startImag = parseFloat($("#txtStartImag").val())
+						endReal = parseFloat($("#txtEndReal").val())
+						endImag = parseFloat($("#txtEndImag").val())
+						muReal = parseFloat($("#txtMuReal").val())
+						muImag = parseFloat($("#txtMuImag").val())
+						break
+				}
+			}
+		}
+
+		function calculatePower()
+		{
+			var Real2 = 0.0
+			var Imag2 = 0.0
+			var Real3 = 0.0
+			var Imag3 = 0.0
+			var limit = 0.0
+
+			switch (Exponent)
+			{
+				case 2:
+					Real2 = Real * Real
+					Imag2 = Imaginary * Imaginary
+					Imaginary = 2 * Imaginary * Real + muImag
+					Real = Real2 - Imag2 + muReal
+					limit = Real2 + Imag2
+					break
+				case 3:
+					Real2 = Real * Real
+					Imag2 = Imaginary * Imaginary
+					Real3 = Real2 * Real
+					Imag3 = Imag2 * Imaginary
+					Real = Real3 - 3 * Real * Imag2 + muReal
+					Imaginary = 3 * Real2 * Imaginary - Imag3 + muImag
+					limit = Real3 + Real2 + Imag3 + Imag2
+					break
+			}
+
+			return limit
+		}
+
+		function drawFractal() {
+			drawingSurfaceImageData = null
+			context.clearRect(0, 0, width, height)
+			context.fillStyle = "#000000"
+			context.fillRect(0, 0, width, height)
+
+			context.font = "bold 16px Verdana"
+			context.fillStyle = "#ffffff"
+			context.textAlign = "center"
+			context.fillText("Drawing Fractal, please wait...", 250, 250)
+
+			window.setTimeout(drawFractalMain, 10)
+		}
+
+		function drawFractalMain() {
+			hasFractal = false
+			context.clearRect(0, 0, width, height)
+			context.fillStyle = "#000000"
+			context.fillRect(0, 0, width, height)
+
+			startReal = parseFloat($("#txtStartReal").val())
+			startImag = parseFloat($("#txtStartImag").val())
+			endReal = parseFloat($("#txtEndReal").val())
+			endImag = parseFloat($("#txtEndImag").val())
+			muReal = parseFloat($("#txtMuReal").val())
+			muImag = parseFloat($("#txtMuImag").val())
+
+			xStep = Math.abs(endReal - startReal) / width
+			yStep = Math.abs(endImag - startImag) / height
+			startWidth = 0
+			endWidth = animStep
+			startHeight = 0
+			endHeight = height
+
+			if (fractalMode == "biomorph")
+				window.setTimeout(drawBiomorphStep, 10)
+			else if (fractalMode == "mandelbrot")
+				window.setTimeout(drawMandelbrotStep, 10)
+		}
+
+		function drawBiomorphStep() {
+			var temp = 0
+			var limit = 100
+			var k = 0.0
+			var inBounds = true
+
+			for (i = startWidth; i <= endWidth - 1; i++)
+			{
+				for (j = startHeight; j <= endHeight - 1; j++)
+				{
+					k = 0
+					inBounds = true
+					Real = startReal + i * xStep
+					Imaginary = startImag + j * yStep
+					while (k <= 30 & inBounds == true)
+					{
+						temp = calculatePower()
+						if (temp > limit)
+						{
+							inBounds = false
+						}
+						k = k + 1
+					}
+
+					if (Math.abs(Real) < 100 | Math.abs(Imaginary) < 100)
+					{
+						data[0] = 255
+						data[1] = 255
+						data[2] = 255
+						data[3] = 255
+
+						context.putImageData(imageData, i, j)
+					}
+				}
+			}
+
+			startWidth = i
+			endWidth = animStep + i
+			if (endWidth <= width)
+				window.setTimeout(drawBiomorphStep, 10)
+			else
+				imgd8=context.getImageData(0,0,width,height	)
+
+			if (endWidth > width)
+				hasFractal = true
+		}
+
+		function drawMandelbrotStep() {
+			var temp = 0
+			var limit = 4
+			var k = 0.0
+			var inBounds = true
+
+			for (i = startWidth; i <= endWidth - 1; i++)
+			{
+				for (j = startHeight; j <= endHeight - 1; j++)
+				{
+					var k = 0
+					muReal = startReal + xStep * i
+					muImag = startImag + yStep * j
+					Real = 0.0
+					Imaginary = 0.0
+
+					do
+					{
+						r = calculatePower()
+						k++
+					}
+					while ((r <= limit) && (k < 256))
+
+					if (k >= 255)
+					{
+						k = 0
+					}
+					k = k % COLORCOUNT
+
+					var pal = $("#selColorScheme").val()
+
+					data[0] = convertFromHexColor(palette[pal][k], 0)
+					data[1] = convertFromHexColor(palette[pal][k], 1)
+					data[2] = convertFromHexColor(palette[pal][k], 2)
+					data[3] = 255
+
+					context.putImageData(imageData, i, j)
+				}
+			}
+
+			startWidth = i
+			endWidth = animStep + i
+			if (endWidth <= width)
+				window.setTimeout(drawMandelbrotStep, 10)
+			else
+				imgd8=context.getImageData(0, 0, width, height)
+
+			if (endWidth > width)
+				hasFractal = true
+
+		}
+
+		function stopAnim() {
+			stopAnimation = true
+		}
+
+		function runAnim() {
+			stopAnimation = false
+			rounds = $("#txtNumSquares").val()
+			mode = $("#selModeType").val()
+			render = $("#selRenderType").val()
+			factor = 0
+
+		 	if (render != "animate") {
+		 		step = 0.125
+		 		factor = step
+		 		update()
+		 		draw()
+		 	}
+		 	else {
+				step = 0.001
+				factor = 0
+				animate()
+			}
+		}
+
+		window.requestAnimFrame = (function(callback){
+			return window.requestAnimationFrame ||
+			window.webkitRequestAnimationFrame ||
+			window.mozRequestAnimationFrame ||
+			window.oRequestAnimationFrame ||
+			window.msRequestAnimationFrame ||
+			function(callback){
+				animTimeout = window.setTimeout(callback, 1000 / FPS)
+			};
+		})();
+		
+		function animate(){
+			if (!stopAnimation) {
+				var thisLoop = new Date()
+				var fps = 1000 / (thisLoop - lastLoop)
+				lastLoop = thisLoop
+				spnFPS.innerHTML = parseInt(fps) + " fps"
+
+				if (factor <= 1) {
+					// update
+					update()
+
+					// clear
+					context.clearRect(0, 0, width, height)
+				
+					// draw
+					draw()
+					if (factor > 1) {
+						//factor = 0
+						context.clearRect(0, 0, width, height)
+						context.strokeStyle = "#000"
+						context.lineWidth = 1
+						context.beginPath()
+						context.moveTo(c1x, c1y)
+						context.lineTo(c2x, c2y)
+						context.lineTo(c3x, c3y)
+						context.lineTo(c4x, c4y)
+						context.closePath()
+						context.stroke()
+					}
+				
+					// request new frame
+					requestAnimFrame(function(){
+						animate()
+					});
+				}
+			}
+		}
+		
+		function update() {
+			c1x = 5.0, c1y = 5.0, c2x = width - 5.0, c2y = 5.0, c3x = width - 5.0, c3y = height - 5.0, c4x = 5.0, c4y = height - 5.0
+			factor += step
+		}
+
+		function draw() {
+			context.clearRect(0, 0, width, height)
+			context.strokeStyle = "#000"
+			context.lineWidth = 1
+			context.beginPath()
+			context.moveTo(c1x, c1y)
+			context.lineTo(c2x, c2y)
+			context.lineTo(c3x, c3y)
+			context.lineTo(c4x, c4y)
+			context.closePath()
+			context.stroke()
+
+			var oc1x, oc1y, oc2x, oc2y, oc3x, oc3y, oc4x, oc4y
+			var startColor = 250
+			var colorFactor = 10
+			var red = startColor
+			var green = startColor
+			var blue = startColor
+
+			for (i = 0; i < rounds; i++) {
+				oc1x = c1x
+				oc1y = c1y
+				oc2x = c2x
+				oc2y = c2y
+				oc3x = c3x
+				oc3y = c3y
+				oc4x = c4x
+				oc4y = c4y
+
+				c1x = c1x + (c2x - c1x) * factor
+				c1y = c1y + (c2y - c1y) * factor
+
+				c2x = c2x + (c3x - c2x) * factor
+				c2y = c2y + (c3y - c2y) * factor
+
+				c3x = c3x + (c4x - c3x) * factor
+				c3y = c3y + (c4y - c3y) * factor
+
+				c4x = c4x + (oc1x - c4x) * factor
+				c4y = c4y + (oc1y - c4y) * factor
+
+				if (mode != "triangle") {
+					context.beginPath()
+					context.moveTo(c1x, c1y)
+					context.lineTo(c2x, c2y)
+					context.lineTo(c3x, c3y)
+					context.lineTo(c4x, c4y)
+					context.closePath()
+					context.stroke()
+				}
+				else {
+					// red = parseInt(red - (i < 10 ? colorFactor * 3 : (i > 20 ? colorFactor * 0.5 : colorFactor))) //(i < 10 ? i * 3 : (i > 30 ? i * 0.5 : i)))
+					// if (red < 0)
+					// 	red = 0
+					// green = parseInt(green - colorFactor) //(i < 10 ? i * 3 : (i > 30 ? i * 0.5 : i)))
+					// if (green < 0)
+					// 	green = 0
+					// blue = parseInt(blue - colorFactor) //(i < 10 ? i * 3 : (i > 30 ? i * 0.5 : i)))
+					// if (blue < 0)
+					// 	blue = 0
+
+					//context.fillStyle = convertToHexColor(red, blue, green)
+					var pal = $("#selColorScheme").val()
+					context.fillStyle = palette[pal][i] //*(COLORCOUNT / rounds)]
+
+					context.beginPath()
+					context.moveTo(c1x, c1y)
+					context.lineTo(oc2x, oc2y)
+					context.lineTo(c2x, c2y)
+					context.closePath()
+					context.fill()
+					context.stroke()
+
+					context.beginPath()
+					context.moveTo(c2x, c2y)
+					context.lineTo(oc3x, oc3y)
+					context.lineTo(c3x, c3y)
+					context.closePath()
+					context.fill()
+					context.stroke()
+
+					context.beginPath()
+					context.moveTo(c3x, c3y)
+					context.lineTo(oc4x, oc4y)
+					context.lineTo(c4x, c4y)
+					context.closePath()
+					context.fill()
+					context.stroke()
+
+					context.beginPath()
+					context.moveTo(c4x, c4y)
+					context.lineTo(oc1x, oc1y)
+					context.lineTo(c1x, c1y)
+					context.closePath()
+					context.fill()
+					context.stroke()
+				}
+			}
+		}
+
+		// Draw Rubber Band Selection
+		// Save and restore drawing surface...................................
+		function saveDrawingSurface() {
+			drawingSurfaceImageData = context.getImageData(0, 0, canvas.width, canvas.height)
+		}
+
+		function restoreDrawingSurface() {
+			context.putImageData(drawingSurfaceImageData, 0, 0)
+		}
+
+		canvas.onmousedown = function (e) {
+			if (hasFractal) {
+				if (drawingSurfaceImageData)
+					restoreDrawingSurface()
+
+				var x = e.layerX,
+					y = e.layerY
+
+				if (e.offsetX) {
+					x = e.offsetX
+					y = e.offsetY
+				}
+				else if (e.layerX) {
+					x = e.layerX
+					y = e.layerY
+				}
+
+				rbX = x
+				rbY = y
+
+				dragging = true
+				saveDrawingSurface()
+
+				e.preventDefault()
+			}
+		};
+
+		canvas.onmousemove = function (e) {
+			if (hasFractal) {
+				var x = e.layerX,
+					y = e.layerY
+
+				if (e.offsetX) {
+					x = e.offsetX
+					y = e.offsetY
+				}
+				else if (e.layerX) {
+					x = e.layerX
+					y = e.layerY
+				}
+
+				e.preventDefault()
+
+				if (dragging) {
+					restoreDrawingSurface()
+		
+					rbStartX = (x < rbX ? x : rbX) //+ canvas.offsetLeft
+					rbStartY  = (y < rbY ? y : rbY) //+ canvas.offsetTop
+
+					rbWidth  = Math.abs(x - rbX)
+					rbHeight = Math.abs(y - rbY)
+
+					if (e.ctrlKey) {
+						//Keep it square to match the canvas ratio
+						var side = Math.min(rbHeight, rbWidth)
+						rbWidth = side
+						rbHeight = side
+					}
+
+					context.strokeStyle = "#F00"
+					context.lineWidth = 2
+					context.strokeRect(rbStartX, rbStartY, rbWidth, rbHeight)
+					context.stroke()
+				}
+			}
+		};
+
+		canvas.onmouseup = function (e) {
+			stopDragging(e)
+		};
+
+		canvas.onmouseout = function (e) {
+			stopDragging(e)
+		};
+
+		function stopDragging(e) {
+			if (hasFractal) {
+				var newStartReal = startReal + (endReal - startReal) * (rbStartX / canvas.width)
+				var newStartImag = startImag + (endImag - startImag) * (rbStartY / canvas.height)
+				var newEndReal = startReal + (endReal - startReal) * ((rbStartX + rbWidth) / canvas.width)
+				var newEndImag = startImag + (endImag - startImag) * ((rbStartY + rbHeight) / canvas.height)
+				
+				$("#txtStartReal").val(newStartReal)
+				$("#txtStartImag").val(newStartImag)
+				$("#txtEndReal").val(newEndReal)
+				$("#txtEndImag").val(newEndImag)
+
+				dragging = false
+				// Leave square on screen for reference
+				//restoreDrawingSurface()
+				e.preventDefault()
+			}
+		}
+
+		// Playing with colors
+		palette = new Array()
+
+		function convertToHexColor(red, blue, green) {
+			var redHex = red.toString(16)
+			var greenHex = green.toString(16)
+			var blueHex = blue.toString(16)
+
+			if (redHex.length == 1)
+				redHex = "0" + redHex
+			if (greenHex.length == 1)
+				greenHex = "0" + greenHex
+			if (blueHex.length == 1)
+				blueHex = "0" + blueHex
+
+			return "#" + redHex + greenHex + blueHex			
+		}
+
+		function convertFromHexColor(hexColor, position) {
+			var chunk = hexColor.substring(position * 2 + 1, position * 2 + 3)
+			return parseInt("0x" + chunk)
+		}
+
+		function hsvToRgb(h, s, v) {
+			var r, g, b
+
+			if (v == 0)
+				return [0, 0, 0]
+
+			var i = Math.floor(h * 6)
+			var f = h * 6 - i
+			var p = v * (1 - s)
+			var q = v * (1 - f * s)
+			var t = v * (1 - (1 - f) * s)
+
+			switch(i % 6){
+				case 0:
+					r = v, g = t, b = p;
+					break
+				case 1:
+					r = q, g = v, b = p;
+					break
+				case 2:
+					r = p, g = v, b = t;
+					break
+				case 3:
+					r = p, g = q, b = v;
+					break
+				case 4:
+					r = t, g = p, b = v;
+					break
+				case 5:
+					r = v, g = p, b = q;
+					break
+			}
+
+			return [Math.floor(r * 255), Math.floor(g * 255), Math.floor(b * 255)];
+		}
+
+		function hsvToRgbHexColor(h, s, v) {
+			var rgb = hsvToRgb(h, s, v)
+			return convertToHexColor(rgb[0], rgb[1], rgb[2])
+		}
+
+		function initPalette()
+		{
+			var red, green, blue
+			var pal = 0
+			var i = 0, j = 0, k = 0
+
+			for (i = 0; i <= $('#selColorScheme option').size(); i++) {
+				palette[i] = new Array(COLORCOUNT)
+				// for (j = 0; j < COLORCOUNT; j++) {
+				// 	palette[i][j] = new Array(4)
+				// }
+			}
+
+			// Random
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				red = Math.floor(Math.random()*256)
+				green = Math.floor(Math.random()*256)
+				blue = Math.floor(Math.random()*256)
+				palette[pal][i] = convertToHexColor(red, green, blue)
+			}
+			palette[pal][0] = convertToHexColor(0,0,0)
+			palette[pal][255] = convertToHexColor(255,255,255)
+			pal++
+
+			// Random HSV
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				golden_ratio_conjugate = 0.618033988749895
+				h = (Math.random() + golden_ratio_conjugate) % 1
+				var nextColor = hsvToRgbHexColor(h, 0.75, 0.95)
+				palette[pal][i] = nextColor
+			}
+			palette[pal][0] = convertToHexColor(0,0,0)
+			palette[pal][255] = convertToHexColor(255,255,255)
+			pal++
+
+			// Triangles
+			var startColor = 250
+			var colorFactor = 10
+			red = startColor
+			green = startColor
+			blue = startColor
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				red = parseInt(red - (i < 10 ? colorFactor * 3 : (i > 20 ? colorFactor * 0.5 : colorFactor))) //(i < 10 ? i * 3 : (i > 30 ? i * 0.5 : i)))
+				if (red < 0)
+					red = 0
+				green = parseInt(green - colorFactor) //(i < 10 ? i * 3 : (i > 30 ? i * 0.5 : i)))
+				if (green < 0)
+					green = 0
+				blue = parseInt(blue - colorFactor) //(i < 10 ? i * 3 : (i > 30 ? i * 0.5 : i)))
+				if (blue < 0)
+					blue = 0
+
+				palette[pal][i] = convertToHexColor(red, green, blue)
+			}
+			pal++
+
+			// Hot Cold
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				red = (i * 2) * (256 / COLORCOUNT)
+				if (red > 255)
+					red = 255
+				green = 255 - (i * 2) * (256 / COLORCOUNT)
+				if (green < 0)
+					green = -green
+				if (i < COLORCOUNT / 2)
+					blue = 0
+				else
+					blue = (i - (COLORCOUNT / 2)) * 2 * (256 / COLORCOUNT)
+
+				palette[pal][i] = convertToHexColor(red, green, blue)
+			}
+			palette[pal][0] = convertToHexColor(0,0,0)
+			pal++
+
+			// Christmas
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				red = (i * 2) * (256 / COLORCOUNT)
+				if (red > 255)
+					red = 255
+				blue = 255 - (i * 2) * (256 / COLORCOUNT)
+				if (blue < 0)
+					blue = -blue
+				if (i < COLORCOUNT / 2)
+					green = 0
+				else
+					green = (i - (COLORCOUNT / 2)) * 2 * (256 / COLORCOUNT)
+
+				palette[pal][i] = convertToHexColor(red, green, blue)
+			}
+			palette[pal][0] = convertToHexColor(0,0,0)
+			pal++
+
+			// Gray scale
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				red = (i + 32) * (256 / COLORCOUNT)
+				red = red > 256 ? 0 : red
+				green = red
+				blue = red
+				palette[pal][i] = convertToHexColor(red, green, blue)
+			}
+			palette[pal][0] = convertToHexColor(0,0,0)
+			pal++
+
+			// Red scale
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				red = (i + 32) * (256 / COLORCOUNT)
+				red = red > 256 ? 0 : red
+				green = 0
+				blue = 0
+				palette[pal][i] = convertToHexColor(red, green, blue)
+			}
+			palette[pal][0] = convertToHexColor(0,0,0)
+			pal++
+
+			// Blue scale
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				red = 0
+				green = 0
+				blue = (i + 32) * (256 / COLORCOUNT)
+				blue = blue > 256 ? 0 : blue
+				palette[pal][i] = convertToHexColor(red, green, blue)
+			}
+			palette[pal][0] = convertToHexColor(0,0,0)
+			pal++
+
+			// Green scale
+			for (i = 0; i < COLORCOUNT; i++)
+			{
+				red = 0
+				green = (i + 32) * (256 / COLORCOUNT)
+				green = green > 256 ? 0 : green
+				blue = 0
+				palette[pal][i] = convertToHexColor(red, green, blue)
+			}
+			palette[pal][0] = convertToHexColor(0,0,0)
+			pal++
+
+			// Topo
+			var topoColors =
+			[
+				[ 0, 0, 0 ],
+				[ 209, 3, 248 ],
+				[ 247, 0, 181 ],
+				[ 232, 8, 38 ],
+				[ 227, 95, 19 ],
+				[ 155, 212, 34 ],
+				[ 36, 198, 60 ],
+				[ 44, 140, 192 ],
+				[ 255, 255, 255 ]
+			]
+
+			var clr = new Array(3)
+
+			for (i = 0; i < 8; i++)
+			{
+				for (j = 0; j < 32; j++)
+				{
+					var n = i * 32 + j
+
+					for (k = 0; k < 3; k++)
+					{
+						var c1 = topoColors[i][k]
+						var c2 = topoColors[i+1][k]
+						clr[k] = c1 + (.5 + (c2-c1) * j / 32)
+					}
+					palette[pal][n] = convertToHexColor(clr[0], clr[1], clr[2])
+				}
+			}
+			pal++
+
+		}		
+	</script>
+</html>

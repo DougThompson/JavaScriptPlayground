@@ -1,0 +1,134 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+	<head>
+		<title>Blowfish JavaScript Implementation</title>
+		
+		<style type="text/css">
+			BODY
+			{
+				background-color:white;
+				font: normal normal normal 9pt Verdana, Tahoma, Arial, sans-serif;
+			}
+			INPUT, TEXTAREA
+			{
+				font: normal normal normal 9pt Verdana, Tahoma, Arial, sans-serif;
+			}
+			.testvector
+			{
+				color: red;
+			}
+		</style>
+		
+		<script language="JavaScript" src="blowfish.js" type="text/javascript"></script>
+		<script language="JavaScript" src="md5.js" type="text/javascript"></script>
+		<script language="JavaScript">
+		<!--
+			function blowfishEncrypt()
+			{
+				var inputText = "";
+				var encKey = "";
+				var usePad = window.document.blowfish.chkPad.checked;
+
+				inputText=window.document.blowfish.txtInput.value;
+				encKey=window.document.blowfish.txtEncryptKey.value;
+				window.document.blowfish.txtMD5.value = hex_md5(inputText);
+				window.document.blowfish.txtOutput.value = "Working...";
+				window.document.blowfish.txtOutput.value = encryptText(inputText, encKey, usePad);
+			}
+			
+			function blowfishDecrypt()
+			{
+				var inputText = "";
+				var encKey = "";
+				var usePad = window.document.blowfish.chkPad.checked;
+
+				inputText=window.document.blowfish.txtInput.value;
+				encKey=window.document.blowfish.txtEncryptKey.value;
+				window.document.blowfish.txtMD5.value = hex_md5(inputText);
+				window.document.blowfish.txtOutput.value = "Working...";
+				window.document.blowfish.txtOutput.value = decryptText(inputText, encKey, usePad);
+			}
+		//-->
+		</script>
+	</head>
+
+	<body>
+		<form name="blowfish" id="blowfish">
+			<table bgcolor="#e3e3e3" border="2" cellpadding="10" cellspacing="0">
+				<tr>
+					<td>
+						<table width="90%" cellspacing="0" cellpadding="3" ID="Table1">
+							<tr>
+								<td>
+									Input:<BR>
+									<textarea name="txtInput" rows="8" cols="80" onfocus="this.select()">12345678</textarea>
+								</td>
+							</tr>
+							<tr>
+								<td>
+									MD5 Hash:&nbsp;<input name="txtMD5" size="48" type="text" value="" />
+								</td>
+							</tr>
+							<tr>
+								<td>
+									Encryption Key:&nbsp;<input name="txtEncryptKey" size="56" type="text" value="TESTKEY" />
+								</td>
+							</tr>
+							<tr>
+								<td align="center">
+									<input type=checkbox checked value="" name="chkPad" ID="Checkbox1">Use random padding</input>
+								</td>
+							</tr>
+							<tr>
+								<td align="center">
+									<input type=button value="Encode" onClick="blowfishEncrypt();" />
+									&nbsp;&nbsp;&nbsp;
+									<input type=button value="Decode" onClick="blowfishDecrypt();" />
+								</td>
+							</tr>
+							<tr>
+								<td>
+									Output:<BR>
+									<textarea name="txtOutput" rows="8" cols="80" onfocus="this.select()">Output Text</textarea>
+								</td>
+							</tr>
+							<tr>
+								<td><br>Sample inputs and outputs for encryption key "TESTKEY"</td>
+							</tr>
+							<tr>
+								<td>
+									<table width="100%" align="center">
+										<tr>
+											<td valign="top">
+												<textarea name="tvs1" rows="4" cols="24">12345678</textarea>
+											</td>
+											<td valign="top">
+												<textarea name="tve1" class="testvector" rows="4" cols="50">A77A59C65F36C4892ABBACE13961002C</textarea>
+											</td>
+										</tr>
+										<tr>
+											<td valign="top">
+												<textarea name="tvs2" rows="4" cols="24">12345678abcdefgh</textarea>
+											</td>
+											<td valign="top">
+												<textarea name="tve2" class="testvector" rows="4" cols="50">A77A59C65F36C489FBCD10A9EFF93C96167DE41B1821A105</textarea>
+											</td>
+										</tr>
+										<tr>
+											<td valign="top">
+												<textarea name="tvs3" rows="4" cols="24">Lorem ipsum dolor sit amet, consectetuer adipiscing elit.</textarea>
+											</td>
+											<td valign="top">
+												<textarea name="tve3" class="testvector" rows="4" cols="50">288AB0DBEB750FA477CD36683102D31BFCA3963568129C1F87CA5BCB3FCEF733100A19E02DD7B40181DA9A8446807A0529C5A68F18A7056B935ADD5716EA6FC1</textarea>
+											</td>
+										</tr>
+									</table>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</table>
+		</form>
+	</body>
+</html>
